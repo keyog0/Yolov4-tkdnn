@@ -1,3 +1,6 @@
+# -*- encoding: utf-8 -*-
+# Author : Keunyoung Jung
+
 import darknetTR
 import cv2
 import numpy as np
