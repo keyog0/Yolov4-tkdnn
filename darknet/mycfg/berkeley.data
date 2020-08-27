@@ -1,0 +1,5 @@
+classes= 10
+train  = /home/davide/repos/fancy_darknet/data/berkeley/bdd100k/train.txt
+valid  = /home/davide/repos/fancy_darknet/data/berkeley/bdd100k/val.txt
+names = data/berkeley.names
+backup = backup
