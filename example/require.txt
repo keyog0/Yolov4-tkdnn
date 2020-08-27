@@ -1,0 +1,7 @@
+Required file list
+
+1. .rt file
+2. custom_yolov4.data
+3. custom_yolov4.names
+4. libdarknet.so
+5. darknetTR.py
