@@ -23,7 +23,8 @@ def retbox(detections,i,labels_arr) :
 
 if __name__ == "__main__" :
 
-	class_num = 80
+	labels_arr = ['person','pizza','computer']
+	class_num = 3
 	
 	detector = darknetTR.YOLO4RT(weight_file='custom_yolov4_fp32.rt', 
 					metaPath='custom.data',nms=0.2,conf_thres=0.3)
@@ -51,8 +52,8 @@ if __name__ == "__main__" :
 		for i in range(len(detections)) :
 			label , score , box ,classes = retbox(detections,i,labels_arr)
 			left,top,right,bottom=box
-			cv2.rectangle(frame, (x, y), (w, h), color[idx], 2)
-			cv2.putText(frame,label,(x,y+30),font,1,color[idx],1)
+			cv2.rectangle(frame, (left, top), (right, bottom), color[classes], 2)
+			cv2.putText(frame,label,(left,top+30),font,1,color[classes],1)
 
 		process_time = str(round(time.time() - start,3))
 		frame_per_second = str(round(1/(time.time() - start),3))
