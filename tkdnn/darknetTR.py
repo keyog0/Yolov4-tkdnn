@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
+
 from ctypes import *
 import cv2
 import numpy as np
@@ -28,7 +29,7 @@ class DETECTION(Structure):
                 ("name", c_char*20),
                 ]
 
-lib = CDLL("./build/libdarknetTR.so", RTLD_GLOBAL)
+lib = CDLL("../libdarknetTR.so", RTLD_GLOBAL)
 
 load_network = lib.load_network
 load_network.argtypes = [c_char_p, c_int, c_int]
@@ -71,107 +72,32 @@ get_network_boxes.restype = POINTER(DETECTION)
 # dets = get_network_boxes(netMain, 0.5, 0, pnum)
 # print('end')
 # print(dets[0].cl, dets[0].prob)
+def reproduce_bbox(x,y,w,h,image_w,image_h,model_size = 416) :
+    rx = (x/model_size) * image_w
+    rw = (w/model_size) * image_w
+    ry = (y/model_size) * image_h
+    rh = (h/model_size) * image_h
+    #print(rx,rw,ry,rh)
+
+    return rx,ry,rw,rh
 
 
-def resizePadding(image, height, width):
-    desized_size = height, width
-    old_size = image.shape[:2]
-    max_size_idx = old_size.index(max(old_size))
-    ratio = float(desized_size[max_size_idx]) / max(old_size)
-    new_size = tuple([int(x * ratio) for x in old_size])
+def detect_image(net, meta, darknet_image,image_w,image_h,thresh=.5):
 
-    if new_size > desized_size:
-        min_size_idx = old_size.index(min(old_size))
-        ratio = float(desized_size[min_size_idx]) / min(old_size)
-        new_size = tuple([int(x * ratio) for x in old_size])
-
-    image = cv2.resize(image, (new_size[1], new_size[0]))
-    delta_w = desized_size[1] - new_size[1]
-    delta_h = desized_size[0] - new_size[0]
-    top, bottom = delta_h // 2, delta_h - (delta_h // 2)
-    left, right = delta_w // 2, delta_w - (delta_w // 2)
-
-    image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT)
-    return image
-
-def detect_image(net, meta, darknet_image, thresh=.5):
     num = c_int(0)
 
     pnum = pointer(num)
     do_inference(net, darknet_image)
     dets = get_network_boxes(net, 0.5, 0, pnum)
     res = []
+
     for i in range(pnum[0]):
         b = dets[i].bbox
-        res.append((dets[i].name.decode("ascii"), dets[i].prob, (b.x, b.y, b.w, b.h)))
+        #print(b.x,b.y,b.w,b.h)
+        b.x, b.y, b.w, b.h = reproduce_bbox(b.x, b.y, b.w, b.h,image_w,image_h)
+        res.append((dets[i].cl, dets[i].prob, (b.x, b.y, b.w, b.h)))
 
     return res
-
-def retbox(detections,i) :
-    #print(detections)
-    label = detections[i][0]
-    score = detections[i][1]
-    #classes = labels_arr.index(label)
-
-    # x1 = int(round((detections[i][2][0]) - (detections[i][2][2]/2.0))) # top left x1 
-    # y1 = int(round((detections[i][2][1]) - (detections[i][2][3]/2.0))) # top left y1 
-    # x2 = int(round((detections[i][2][0]) + (detections[i][2][2]/2.0))) # bottom right x2 
-    # y2 = int(round((detections[i][2][1]) + (detections[i][2][3]/2.0))) # bottom right y2 
-    x1 = int(round((detections[i][2][0]))) # top left x1 
-    y1 = int(round((detections[i][2][1]))) # top left y1 
-    x2 = int(round((detections[i][2][2]))) # bottom right x2 
-    y2 = int(round((detections[i][2][3]))) # bottom right y2 
-                
-    box = np.array([x1,y1,x2,y2])
-
-    return label, score, box 
-
-
-def loop_detect(detect_m, video_path):
-    stream = cv2.VideoCapture(video_path)
-    start = time.time()
-    cnt = 0
-    while stream.isOpened():
-        ret, image = stream.read()
-        if ret is False:
-            break
-        # image = resizePadding(image, 512, 512)
-        # frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.resize(image,
-                           (416, 416),
-                           interpolation=cv2.INTER_LINEAR)
-        detections = detect_m.detect(image, need_resize=False)
-        for i in range(len(detections)) :
-            label , score , box = retbox(detections,i)
-            print(box)
-
-        #for box in boxes:
-        x, y = int(box[0]), int(box[1])
-        w, h = int(box[2]), int(box[3])
-        cv2.rectangle(image, (x, y), (w+x, h+y), (0,255,0), 3)
-
-        cnt += 1
-
-        cv2.imshow('test',image)
-        k = cv2.waitKey(1)
-        if k == 27: 
-            break
-        for det in detections:
-            print(det)
-    end = time.time()
-    print("frame:{},time:{:.3f},FPS:{:.2f}".format(cnt, end-start, cnt/(end-start)))
-    stream.release()
-
-
-# class myThread(threading.Thread):
-#    def __init__(self, func, args):
-#       threading.Thread.__init__(self)
-#       self.func = func
-#       self.args = args
-#    def run(self):
-#       # print ("Starting " + self.args[0])
-#       self.func(*self.args)
-#       print ("Exiting " )
 
 
 class YOLO4RT(object):
@@ -192,6 +118,8 @@ class YOLO4RT(object):
 
     def detect(self, image, need_resize=True, expand_bb=5):
         try:
+            image_w = image.shape[1]
+            image_h = image.shape[0]
             if need_resize:
                 frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.resize(frame_rgb,
@@ -200,12 +128,8 @@ class YOLO4RT(object):
             frame_data = image.ctypes.data_as(c_char_p)
             copy_image_from_bytes(self.darknet_image, frame_data)
 
-            detections = detect_image(self.model, self.metaMain, self.darknet_image, thresh=self.thresh)
-            #print('@@@@@@@@@@@@@@@@',detections)
-            # cvDrawBoxes(detections, image)
-            # cv2.imshow("1", image)
-            # cv2.waitKey(1)
-            # detections = self.filter_results(detections, "person")
+            detections = detect_image(self.model, self.metaMain, self.darknet_image,image_w,image_h,thresh=self.thresh)
+
             return detections
         except Exception as e_s:
             print(e_s)
@@ -223,10 +147,3 @@ def parse_args():
 if __name__ == '__main__':
     #args = parse_args()
     detect_m = YOLO4RT(weight_file='./build/ground_yolov4_fp32.rt',metaPath='./ground.data')
-    t = Thread(target=loop_detect, args=(detect_m, './bacon_potato_pizza.mp4'), daemon=True)
-
-    # thread1 = myThread(loop_detect, [detect_m])
-
-    # Start new Threads
-    t.start()
-    t.join()
