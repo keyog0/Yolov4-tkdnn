@@ -244,7 +244,7 @@ Check `.rt`file has been created.
 ## How to do inference on python
 To do inference, you should move to directory where you want to do inference some files
 1. `.rt`file, `custom_yolov4.data`, and `custom_yolov4.names`
-2. `libdarknet.so` in tkDnn/build directory
+2. `libdarknetTR.so` in tkDnn/build directory
 3. `darknetTR.py` in tkDnn directory
 
 Input this code in your python code where you need
